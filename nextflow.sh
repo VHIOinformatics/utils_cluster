@@ -2,7 +2,7 @@
 #SBATCH --job-name=example  # Job name
 #SBATCH -p long
 #SBATCH --mail-type=END,FAIL          # Mail events (NONE, BEGIN, END, FAIL, ALL)
-#SBATCH --mail-user=paumunoz@vhio.net     # Where to send mail	
+#SBATCH --mail-user=user@vhio.net     # Where to send mail	
 #SBATCH --ntasks=1                    # Run on a single CPU
 #SBATCH --mem=8G                     # Job memory request
 #SBATCH --cpus-per-task=1
@@ -12,25 +12,18 @@
 
 
 #Variable definition
-samples="Samplefile.csv"
-version="xxx"
 pipeline="nf-core/xxx"
+version="xxx"
 profile="singularity"
-genome="GATK.GRCh38"
-tools="xxxxx"
-sarekoutput="results_"$SLURM_JOB_NAME
-logdir="XXXXX"
-logfile=$SLURM_JOB_NAME".txt"
+samples="Samplefile.csv"
+output="results_"$SLURM_JOB_NAME
+igenomes='/mnt/petasan_general_bioinformatics_R/refs/igenomes/' #Only if using iGenomes (not recommended for transcriptomics)
+genome="GATK.GRCh38" #Only if using iGenomes
 other=""
-igenomes='/mnt/bioinfnas/general/refs/igenomes'
 
-#Maximum resources
-maxmem="74.GB"
-max_cpu="30"
-max_time="12.h"
 
 #Nextflow command
-cmd="nextflow run $pipeline -profile $profile --input $samples -c nextflow.conf  --genome $genome -r $version --tools $tools --igenomes_base $igenomes --outdir $sarekoutput $other"
+cmd="nextflow run $pipeline -r $version -profile $profile --input $samples -c nextflow.conf --igenomes_base $igenomes --genome $genome --outdir $output $other"
 
 
 #Creation of cache directory to store images downloaded by the pipeline
@@ -39,6 +32,8 @@ then
 	mkdir cache
 fi
 
+
+#Creation of tmp dir to save temporary files in the working directory instead of the computation nodes
 if [! -d "./tmp"]
 then
 	mkdir ./tmp
@@ -47,17 +42,17 @@ else
 fi
 
 
-
 #Creation of Nextflow config file
 read -r -d '' config <<- EOM
 
-#Config parameters
+//Config parameters
 params {
   config_profile_description = 'bioinfo config'
   config_profile_contact = '$SLURM_JOB_USER $SLURM_JOB_USER@vhio.net'
   config_profile_url ='tobecopiedingithub'
 }
-#Singularity configuration
+
+//Singularity configuration
 singularity {
   enabled = true
   autoMounts = true
@@ -68,35 +63,23 @@ env{
 	  TMPDIR="./tmp/"
 
 }
-#Slurm queue configuration
+
+//Slurm queue configuration
 executor {
   name = 'slurm'
-  queueSize = 12 #Number of maximum processes executed at the same time
+  queueSize = 12 //Number of maximum processes executed at the same time
 }
 
-#Slurm partitions configuration: each job will be sent to a specific partition according to resources needed defined by the pipeline
+//Slurm partitions configuration: each job will be sent to a specific partition according to resources needed defined by the pipeline
 process { 
   executor = 'slurm'
   queue    = { task.time <= 5.h && task.memory <= 10.GB ? 'short': (task.time >= 10.d || task.memory < 72.GB ? 'long' : 'highmem')}
-#  clusterOptions = { " -w bioinf.vhio.org --exclude=bioinf2.vhio.org"}    ####OPTIONAL, ONLY USE IN CASE YOU NEED TO LAUNCH THE JOB IN SPECIFIC NODES
-
-
-}
-
-#Definition of maximum resources
-params {
-  max_memory = '$maxmem'
-  max_cpus = $max_cpu
-  max_time = '$max_time'
+  //clusterOptions = { " -w bioinf.vhio.org --exclude=bioinf2.vhio.org"}    //OPTIONAL, ONLY USE IN CASE YOU NEED TO LAUNCH THE JOB IN SPECIFIC NODES
 }
 EOM
 
 echo "$config" > nextflow.conf
 
 
-#Adding information about this run in the project's log 
-message=$(date +"%D %T")"        "$(whoami)"     "$SLURM_JOB_NAME"       "$cmd
-echo  $message >> $logdir$logfile
+#Run command
 $cmd
-tail -n 20 $SLURM_JOB_NAME"_"$SLURM_JOB_ID".log" >> $logdir$logfile
-
