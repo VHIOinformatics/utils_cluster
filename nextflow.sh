@@ -53,8 +53,12 @@ singularity {
   enabled = true
   autoMounts = true
   cacheDir='./cache/'
+  runOptions = '-B ./tmp/'
 }
+env{
+	  TMPDIR="./tmp/"
 
+}
 #Slurm queue configuration
 executor {
   name = 'slurm'
