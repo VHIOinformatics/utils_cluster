@@ -39,6 +39,15 @@ then
 	mkdir cache
 fi
 
+if [! -d "./tmp"]
+then
+	mkdir ./tmp
+else
+	rm -rf ./tmp/*
+fi
+
+
+
 #Creation of Nextflow config file
 read -r -d '' config <<- EOM
 
